@@ -1,0 +1,192 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <title>Gerador de Prompts</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;600;700&display=swap" rel="stylesheet">
+    <style>
+        * { box-sizing: border-box; }
+        body {
+            margin: 0;
+            font-family: 'Inter', sans-serif;
+            background: linear-gradient(135deg, #0f172a, #020617);
+            color: #e5e7eb;
+            min-height: 100vh;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+        }
+        .container {
+            width: 100%;
+            max-width: 720px;
+            background: rgba(2,6,23,0.9);
+            border-radius: 16px;
+            padding: 32px;
+            box-shadow: 0 20px 40px rgba(0,0,0,0.5);
+        }
+        h1 {
+            margin-top: 0;
+            font-size: 28px;
+            font-weight: 700;
+        }
+        p {
+            color: #cbd5f5;
+        }
+        .chat {
+            margin-top: 24px;
+            display: flex;
+            flex-direction: column;
+            gap: 14px;
+            max-height: 360px;
+            overflow-y: auto;
+            padding-right: 6px;
+        }
+        .message {
+            max-width: 80%;
+            padding: 12px 14px;
+            border-radius: 14px;
+            line-height: 1.5;
+            font-size: 14px;
+        }
+        .user {
+            align-self: flex-end;
+            background: linear-gradient(135deg, #6366f1, #818cf8);
+            color: #020617;
+        }
+        .ai {
+            align-self: flex-start;
+            background: #020617;
+            border: 1px solid #1e293b;
+        }
+        .input-area {
+            margin-top: 20px;
+            display: flex;
+            gap: 10px;
+        }
+        textarea {
+            flex: 1;
+            padding: 14px;
+            border-radius: 12px;
+            background: #020617;
+            color: #e5e7eb;
+            border: 1px solid #1e293b;
+            resize: none;
+            min-height: 56px;
+            font-family: 'Inter', sans-serif;
+        }
+        textarea::placeholder {
+            color: #64748b;
+        }
+        button {
+            padding: 14px 20px;
+            border-radius: 12px;
+            border: none;
+            background: linear-gradient(135deg, #6366f1, #818cf8);
+            color: #020617;
+            font-weight: 600;
+            cursor: pointer;
+            transition: transform 0.1s ease, box-shadow 0.1s ease;
+        }
+        button:hover {
+            transform: translateY(-1px);
+            box-shadow: 0 8px 20px rgba(99,102,241,0.4);
+        }
+        footer {
+            margin-top: 20px;
+            font-size: 12px;
+            color: #64748b;
+            text-align: center;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>Gerador de Prompt com IA</h1>
+        <p>Descreva sua ideia de forma simples. A IA conversa com você e gera o prompt completo automaticamente.</p>
+
+        <div id="chat" class="chat"></div>
+
+        <div class="input-area">
+            <textarea id="userInput" placeholder="Ex: uma mulher lendo um livro"></textarea>
+            <button onclick="sendMessage()">Enviar</button>
+        </div>
+
+        <footer>
+            A IA faz perguntas simples apenas se necessário e gera o prompt sem termos técnicos.
+        </footer>
+    </div>
+
+    <script>
+        const OPENROUTER_API_KEY = "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";
+        const MODEL = "meta-llama/llama-3.1-8b-instruct";
+
+        const chatElement = document.getElementById('chat');
+
+        let messages = [
+            {
+                role: 'system',
+                content: `Você é um assistente amigável que cria PROMPTS DE IMAGEM.
+
+Regras:
+- Gere o prompt o mais rápido possível.
+- A comunicação deve ser o mais curta possivel nada de textos longos.
+- não dê exemplos de prompt automático e nem de prompt detalhado sem o usuário pedir seja direto e curto
+- Faça no máximo 1 perguntas simples, com exemplos.
+- não gere o prompt final logo de inicio
+- Não use termos técnicos com o usuário.
+- Se faltar algo, assuma padrões bonitos e realistas.
+- no final gere o prompt o mais completo possível com detalhes visuais, estilo artístico, iluminação, cores, composição, ambiente e atmosfera o mais tecnicamente possível para gerar imagens de alta qualidade.
+- Quando finalizar, entregue o PROMPT FINAL claramente identificado.
+- pergunte sempre se quer que gere automaticamente o prompt ou que seja detalhado passo a passo.
+`
+            }
+        ];
+
+        function addMessage(text, type) {
+            const div = document.createElement('div');
+            div.className = `message ${type}`;
+            div.textContent = text;
+            chatElement.appendChild(div);
+            chatElement.scrollTop = chatElement.scrollHeight;
+        }
+
+        async function sendMessage() {
+            const input = document.getElementById('userInput');
+            const text = input.value.trim();
+            if (!text) return;
+
+            addMessage(text, 'user');
+            messages.push({ role: 'user', content: text });
+            input.value = '';
+
+            addMessage('Pensando...', 'ai');
+
+            try {
+                const response = await fetch('https://openrouter.ai/api/v1/chat/completions', {
+                    method: 'POST',
+                    headers: {
+                        'Authorization': `Bearer ${OPENROUTER_API_KEY}`,
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({
+                        model: MODEL,
+                        messages: messages,
+                        temperature: 0.5
+                    })
+                });
+
+                const data = await response.json();
+                chatElement.removeChild(chatElement.lastChild);
+
+                const aiMessage = data.choices[0].message.content;
+                addMessage(aiMessage, 'ai');
+                messages.push({ role: 'assistant', content: aiMessage });
+            } catch (err) {
+                chatElement.removeChild(chatElement.lastChild);
+                addMessage('Erro ao se comunicar com a IA.', 'ai');
+            }
+        }
+    </script>
+</body>
+</html>
